@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>바다 미로 탐험</title>
+<style>
+  :root {
+    --deep: #032f52;
+    --mid: #04578a;
+    --shallow: #0aa1c0;
+    --foam: #d7f7ff;
+    --panel: rgba(6, 40, 66, 0.72);
+    --accent: #ffd166;
+    --coral: #ff7a5c;
+    --text: #eafcff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+  }
+  body {
+    background: radial-gradient(ellipse at top, #0b6b9c 0%, #054a78 35%, #032f52 70%, #011c34 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 60px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* floating background bubbles */
+  .bg-bubble {
+    position: fixed;
+    bottom: -60px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.85), rgba(255,255,255,0.05) 70%);
+    opacity: 0.55;
+    pointer-events: none;
+    animation: rise linear infinite;
+    z-index: 0;
+  }
+  @keyframes rise {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(-110vh) translateX(var(--drift, 20px)); opacity: 0; }
+  }
+  h1 {
+    margin: 8px 0 4px;
+    font-size: 30px;
+    letter-spacing: 1px;
+    z-index: 1;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  .subtitle {
+    color: #bfe9f5;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-align: center;
+    max-width: 460px;
+    z-index: 1;
+    line-height: 1.6;
+  }
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    z-index: 1;
+  }
+  .panel label {
+    font-size: 14px;
+    color: #cdeef8;
+    margin-right: 6px;
+  }
+  select, button {
+    font-family: inherit;
+    font-size: 14px;
+    border-radius: 10px;
+    border: none;
+    padding: 9px 16px;
+    cursor: pointer;
+    outline: none;
+  }
+  select {
+    background: #0a3d5c;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  button {
+    background: linear-gradient(180deg, var(--accent), #f4a53a);
+    color: #24240a;
+    font-weight: 700;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(255,209,102,0.4);
+  }
+  button:active { transform: translateY(0); }
+  .stats {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    z-index: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stats span {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 7px 14px;
+    border-radius: 10px;
+    min-width: 84px;
+    text-align: center;
+  }
+  .stats b { color: var(--accent); }
+  .canvas-wrap {
+    position: relative;
+    z-index: 1;
+    border-radius: 14px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.55);
+  }
+  #mazeCanvas {
+    display: block;
+    border-radius: 14px;
+    max-width: 92vw;
+    height: auto;
+  }
+  #mazeCanvas.shake {
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 3px); }
+    40% { transform: translate(6px, -3px); }
+    60% { transform: translate(-4px, 2px); }
+    80% { transform: translate(4px, -2px); }
+  }
+  #toast {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: rgba(15, 30, 45, 0.92);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    z-index: 3;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .hint {
+    margin-top: 14px;
+    color: #a9d8e5;
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.6;
+    z-index: 1;
+    max-width: 480px;
+  }
+  .dpad {
+    display: none;
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(3, 56px);
+    gap: 6px;
+    margin-top: 18px;
+    z-index: 1;
+  }
+  .dpad button {
+    background: rgba(10, 61, 92, 0.9);
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .dpad button:hover { background: #0d4f78; }
+  .dpad .up { grid-column: 2; grid-row: 1; }
+  .dpad .left { grid-column: 1; grid-row: 2; }
+  .dpad .right { grid-column: 3; grid-row: 2; }
+  .dpad .down { grid-column: 2; grid-row: 3; }
+  @media (max-width: 640px) {
+    .dpad { display: grid; }
+  }
+  #winOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 15, 27, 0.88);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 10;
+    text-align: center;
+    padding: 20px;
+  }
+  #winOverlay.show { display: flex; }
+  #winOverlay h2 {
+    font-size: 40px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    text-shadow: 0 2px 14px rgba(255,209,102,0.5);
+  }
+  #winOverlay p {
+    font-size: 16px;
+    color: #d0eef8;
+    margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🐠 바다 미로 탐험</h1>
+<div class="subtitle">물고기를 움직여 조개 보물을 찾아가세요. 벽은 흔들리는 해초예요 — 지나갈 수 없어요.
+상어를 만나면 물려서 출발점으로 되돌아가니 조심하세요!</div>
+
+<div class="panel">
+  <div>
+    <label for="difficulty">난이도</label>
+    <select id="difficulty">
+      <option value="12">쉬움 (12x12)</option>
+      <option value="18" selected>보통 (18x18)</option>
+      <option value="26">어려움 (26x26)</option>
+      <option value="34">매우 어려움 (34x34)</option>
+    </select>
+  </div>
+  <button id="newGameBtn">새 바다 생성</button>
+  <button id="resetBtn">다시 시작</button>
+</div>
+
+<div class="stats">
+  <span>이동 횟수: <b id="moveCount">0</b></span>
+  <span>시간: <b id="timer">00:00</b></span>
+  <span>🦈 물린 횟수: <b id="biteCount">0</b></span>
+</div>
+
+<div class="canvas-wrap">
+  <canvas id="mazeCanvas"></canvas>
+  <div id="toast"></div>
+</div>
+
+<div class="dpad">
+  <button class="up" data-dir="up">▲</button>
+  <button class="left" data-dir="left">◀</button>
+  <button class="right" data-dir="right">▶</button>
+  <button class="down" data-dir="down">▼</button>
+</div>
+
+<div class="hint">방향키 또는 W/A/S/D로 이동 · 모바일에서는 아래 버튼을 사용하세요</div>
+
+<div id="winOverlay">
+  <h2>🐚 보물을 찾았어요!</h2>
+  <p id="winStats"></p>
+  <button id="playAgainBtn">새 바다로 다시 하기</button>
+</div>
+
+<script>
+(function () {
+  // ---------- decorative background bubbles ----------
+  function spawnBgBubbles() {
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const b = document.createElement('div');
+      b.className = 'bg-bubble';
+      const size = 6 + Math.random() * 22;
+      b.style.width = size + 'px';
+      b.style.height = size + 'px';
+      b.style.left = Math.random() * 100 + 'vw';
+      b.style.setProperty('--drift', (Math.random() * 60 - 30) + 'px');
+      const duration = 8 + Math.random() * 10;
+      b.style.animationDuration = duration + 's';
+      b.style.animationDelay = (Math.random() * duration) + 's';
+      document.body.appendChild(b);
+    }
+  }
+  spawnBgBubbles();
+
+  const canvas = document.getElementById('mazeCanvas');
+  const ctx = canvas.getContext('2d');
+  const difficultySelect = document.getElementById('difficulty');
+  const newGameBtn = document.getElementById('newGameBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const moveCountEl = document.getElementById('moveCount');
+  const timerEl = document.getElementById('timer');
+  const biteCountEl = document.getElementById('biteCount');
+  const winOverlay = document.getElementById('winOverlay');
+  const winStats = document.getElementById('winStats');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+  const dpadButtons = document.querySelectorAll('.dpad button');
+  const toastEl = document.getElementById('toast');
+
+  let cols, rows;
+  let grid = [];
+  let sharks = [];
+  let player = { x: 0, y: 0 };
+  let goal = { x: 0, y: 0 };
+  let facing = 'left'; // fish default orientation
+  let moveCount = 0;
+  let biteCount = 0;
+  let startTime = null;
+  let timerInterval = null;
+  let won = false;
+  let visited = [];
+  let particles = [];
+  let toastTimer = null;
+
+  function Cell(x, y) {
+    return {
+      x, y,
+      walls: { top: true, right: true, bottom: true, left: true },
+      inMaze: false
+    };
+  }
+
+  function index(x, y) {
+    if (x < 0 || y < 0 || x >= cols || y >= rows) return -1;
+    return x + y * cols;
+  }
+
+  function seededRand(seed) {
+    const s = Math.sin(seed * 12.9898) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  // BFS the unique solution path so sharks never get placed on it —
+  // otherwise a shark on the only route would send the player back to
+  // start forever, making the maze unsolvable.
+  function findSolutionPath(sx, sy, gx, gy) {
+    const startIdx = index(sx, sy);
+    const goalIdx = index(gx, gy);
+    const prev = new Array(cols * rows).fill(-1);
+    const seen = new Array(cols * rows).fill(false);
+    const queue = [startIdx];
+    seen[startIdx] = true;
+    let qi = 0;
+    while (qi < queue.length) {
+      const cur = queue[qi++];
+      if (cur === goalIdx) break;
+      const cx = cur % cols, cy = Math.floor(cur / cols);
+      const cell = grid[cur];
+      const moves = [];
+      if (!cell.walls.top) moves.push(index(cx, cy - 1));
+      if (!cell.walls.bottom) moves.push(index(cx, cy + 1));
+      if (!cell.walls.left) moves.push(index(cx - 1, cy));
+      if (!cell.walls.right) moves.push(index(cx + 1, cy));
+      for (const n of moves) {
+        if (n !== -1 && !seen[n]) {
+          seen[n] = true;
+          prev[n] = cur;
+          queue.push(n);
+        }
+      }
+    }
+    const path = new Set();
+    let cur = goalIdx;
+    while (cur !== -1) {
+      path.add(cur);
+      if (cur === startIdx) break;
+      cur = prev[cur];
+    }
+    return path;
+  }
+
+  function generateMaze(size) {
+    cols = size;
+    rows = size;
+    grid = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        grid.push(Cell(x, y));
+      }
+    }
+
+    const stack = [];
+    let current = grid[index(0, 0)];
+    current.inMaze = true;
+    stack.push(current);
+
+    function neighbors(cell) {
+      const dirs = [
+        { dx: 0, dy: -1, wall: 'top', opp: 'bottom' },
+        { dx: 1, dy: 0, wall: 'right', opp: 'left' },
+        { dx: 0, dy: 1, wall: 'bottom', opp: 'top' },
+        { dx: -1, dy: 0, wall: 'left', opp: 'right' }
+      ];
+      const result = [];
+      for (const d of dirs) {
+        const nx = cell.x + d.dx;
+        const ny = cell.y + d.dy;
+        const idx = index(nx, ny);
+        if (idx !== -1 && !grid[idx].inMaze) {
+          result.push({ cell: grid[idx], dir: d });
+        }
+      }
+      return result;
+    }
+
+    while (stack.length > 0) {
+      current = stack[stack.length - 1];
+      const options = neighbors(current);
+      if (options.length === 0) {
+        stack.pop();
+        continue;
+      }
+      const choice = options[Math.floor(Math.random() * options.length)];
+      current.walls[choice.dir.wall] = false;
+      choice.cell.walls[choice.dir.opp] = false;
+      choice.cell.inMaze = true;
+      stack.push(choice.cell);
+    }
+
+    player = { x: 0, y: 0 };
+    goal = { x: cols - 1, y: rows - 1 };
+    facing = 'left';
+    visited = grid.map(() => false);
+    visited[index(0, 0)] = true;
+
+    // place sharks on random cells, away from start and never on the
+    // one true path to the goal (otherwise the maze becomes unsolvable)
+    sharks = [];
+    const solutionPath = findSolutionPath(0, 0, goal.x, goal.y);
+    const sharkCount = Math.max(2, Math.floor(cols * rows * 0.025));
+    const candidates = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const nearStart = Math.abs(x - 0) + Math.abs(y - 0) <= 2;
+        const isGoal = x === goal.x && y === goal.y;
+        const onPath = solutionPath.has(index(x, y));
+        if (!nearStart && !isGoal && !onPath) candidates.push({ x, y });
+      }
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    sharks = candidates.slice(0, Math.min(sharkCount, candidates.length)).map((c, i) => ({
+      x: c.x, y: c.y, seed: i * 7.31 + 1
+    }));
+
+    // background bubble particles inside canvas
+    particles = [];
+    for (let i = 0; i < 30; i++) {
+      particles.push({
+        x: Math.random(),
+        y: Math.random(),
+        r: 1 + Math.random() * 2.5,
+        speed: 0.02 + Math.random() * 0.05,
+        drift: (Math.random() - 0.5) * 0.15
+      });
+    }
+  }
+
+  function resizeCanvas() {
+    const size = Math.min(cols, rows);
+    const maxDisplay = Math.min(window.innerWidth * 0.9, 640);
+    const cellSize = Math.max(12, Math.floor(maxDisplay / size));
+    canvas.width = cols * cellSize;
+    canvas.height = rows * cellSize;
+    canvas.dataset.cellSize = cellSize;
+  }
+
+  // ---------- drawing helpers ----------
+  function drawLeafBlade(bx, by, tipX, tipY, ctrlX, ctrlY, width, colorA, colorB) {
+    const dx = tipX - bx, dy = tipY - by;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const halfW = width / 2;
+    const grad = ctx.createLinearGradient(bx, by, tipX, tipY);
+    grad.addColorStop(0, colorA);
+    grad.addColorStop(1, colorB);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(ctrlX + nx * halfW, ctrlY + ny * halfW, tipX, tipY);
+    ctx.quadraticCurveTo(ctrlX - nx * halfW, ctrlY - ny * halfW, bx, by);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // The wall's own line is always drawn straight and exactly on the grid
+  // boundary (never swayed) so open passages never look blocked. Only the
+  // decorative fronds sway, and they grow "upward" (like real seaweed
+  // rooted on the seabed) instead of sideways into the passage.
+  function drawSeaweedWall(x1, y1, x2, y2, seed, time, detailed, cellSize) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return;
+
+    const stemGrad = ctx.createLinearGradient(x1, y1, x2, y2);
+    stemGrad.addColorStop(0, '#0e5c39');
+    stemGrad.addColorStop(0.5, '#1c8a54');
+    stemGrad.addColorStop(1, '#0e5c39');
+    ctx.strokeStyle = stemGrad;
+    ctx.lineWidth = Math.max(2, cellSize * 0.07);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    if (!detailed) return;
+
+    const bladeCount = Math.max(1, Math.round(len / (cellSize * 0.6)));
+    for (let i = 0; i < bladeCount; i++) {
+      const t = (i + 0.5) / bladeCount;
+      const bx = x1 + dx * t;
+      const by = y1 + dy * t;
+      const bladeSeed = seed * 3.7 + i * 5.13;
+      const sway = Math.sin(time * 0.0017 + bladeSeed) * cellSize * 0.09;
+      const height = cellSize * (0.24 + seededRand(bladeSeed) * 0.12);
+      const width = cellSize * (0.1 + seededRand(bladeSeed + 3) * 0.05);
+      const tipX = bx + sway;
+      const tipY = by - height;
+      const ctrlX = bx + sway * 0.5;
+      const ctrlY = by - height * 0.55;
+      const hue = 138 + seededRand(bladeSeed + 1) * 42;
+      const light1 = 24 + seededRand(bladeSeed + 2) * 8;
+      const light2 = 52 + seededRand(bladeSeed + 2) * 10;
+      drawLeafBlade(
+        bx, by, tipX, tipY, ctrlX, ctrlY, width,
+        `hsl(${hue}, 55%, ${light1}%)`,
+        `hsl(${hue + 10}, 65%, ${light2}%)`
+      );
+    }
+  }
+
+  function drawEmoji(emoji, x, y, size, opts) {
+    opts = opts || {};
+    ctx.save();
+    ctx.translate(x, y);
+    if (opts.rotate) ctx.rotate(opts.rotate);
+    if (opts.flip) ctx.scale(-1, 1);
+    ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 0, 0);
+    ctx.restore();
+  }
+
+  function draw(time) {
+    const cellSize = Number(canvas.dataset.cellSize) || 24;
+    const detailed = (cols * rows) <= 450;
+
+    // ocean water background
+    const waterGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    waterGrad.addColorStop(0, '#1c8fc0');
+    waterGrad.addColorStop(0.5, '#0f6a9c');
+    waterGrad.addColorStop(1, '#083f63');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // rising bubble particles
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    particles.forEach((p) => {
+      p.y -= p.speed * 0.02;
+      p.x += p.drift * 0.002;
+      if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
+      if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
+      ctx.beginPath();
+      ctx.arc(p.x * canvas.width, p.y * canvas.height, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+
+    // visited path tint (sandy footprints trail)
+    ctx.fillStyle = 'rgba(255, 244, 214, 0.16)';
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (visited[index(x, y)]) {
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    // walls as seaweed
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const cell = grid[index(x, y)];
+        const px = x * cellSize;
+        const py = y * cellSize;
+        const seedBase = (x * 31 + y * 17);
+        if (cell.walls.top) drawSeaweedWall(px, py, px + cellSize, py, seedBase + 0.1, time, detailed, cellSize);
+        if (cell.walls.left) drawSeaweedWall(px, py, px, py + cellSize, seedBase + 0.2, time, detailed, cellSize);
+        if (x === cols - 1 && cell.walls.right) drawSeaweedWall(px + cellSize, py, px + cellSize, py + cellSize, seedBase + 0.3, time, detailed, cellSize);
+        if (y === rows - 1 && cell.walls.bottom) drawSeaweedWall(px, py + cellSize, px + cellSize, py + cellSize, seedBase + 0.4, time, detailed, cellSize);
+      }
+    }
+
+    // goal treasure with pulsing glow
+    const gx = goal.x * cellSize + cellSize / 2;
+    const gy = goal.y * cellSize + cellSize / 2;
+    const pulse = 0.85 + Math.sin(time * 0.004) * 0.15;
+    const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, cellSize * 0.9);
+    glow.addColorStop(0, `rgba(255, 224, 130, ${0.55 * pulse})`);
+    glow.addColorStop(1, 'rgba(255, 224, 130, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(gx, gy, cellSize * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    drawEmoji('🐚', gx, gy, cellSize * pulse, {});
+
+    // sharks
+    sharks.forEach((s) => {
+      const sx = s.x * cellSize + cellSize / 2;
+      const sy = s.y * cellSize + cellSize / 2 + Math.sin(time * 0.003 + s.seed) * cellSize * 0.12;
+      const rot = Math.sin(time * 0.003 + s.seed) * 0.08;
+      drawEmoji('🦈', sx, sy, cellSize * 0.9, { rotate: rot });
+    });
+
+    // player fish with idle bob
+    const px = player.x * cellSize + cellSize / 2;
+    const bob = Math.sin(time * 0.005) * cellSize * 0.06;
+    const py = player.y * cellSize + cellSize / 2 + bob;
+    drawEmoji('🐠', px, py, cellSize * 0.95, { flip: facing === 'right' });
+  }
+
+  // ---------- animation loop ----------
+  let rafId = null;
+  function loop(time) {
+    draw(time);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function canMove(dir) {
+    const cell = grid[index(player.x, player.y)];
+    if (!cell) return false;
+    switch (dir) {
+      case 'up': return !cell.walls.top;
+      case 'down': return !cell.walls.bottom;
+      case 'left': return !cell.walls.left;
+      case 'right': return !cell.walls.right;
+    }
+    return false;
+  }
+
+  function showToast(text, duration) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), duration || 1400);
+  }
+
+  function isShark(x, y) {
+    return sharks.some((s) => s.x === x && s.y === y);
+  }
+
+  function move(dir) {
+    if (won) return;
+    if (!canMove(dir)) return;
+
+    if (startTime === null) startGameTimer();
+
+    let nx = player.x, ny = player.y;
+    if (dir === 'up') ny -= 1;
+    if (dir === 'down') ny += 1;
+    if (dir === 'left') { nx -= 1; facing = 'left'; }
+    if (dir === 'right') { nx += 1; facing = 'right'; }
+
+    moveCount++;
+    moveCountEl.textContent = moveCount;
+
+    if (isShark(nx, ny)) {
+      biteCount++;
+      biteCountEl.textContent = biteCount;
+      showToast('🦈 상어에게 물렸어요! 출발점으로 돌아갑니다', 1600);
+      canvas.classList.remove('shake');
+      void canvas.offsetWidth;
+      canvas.classList.add('shake');
+      player = { x: 0, y: 0 };
+      facing = 'left';
+      visited[index(0, 0)] = true;
+      return;
+    }
+
+    player.x = nx;
+    player.y = ny;
+    visited[index(player.x, player.y)] = true;
+
+    if (player.x === goal.x && player.y === goal.y) {
+      handleWin();
+    }
+  }
+
+  function handleWin() {
+    won = true;
+    stopGameTimer();
+    const elapsed = getElapsedSeconds();
+    winStats.textContent = `이동 횟수: ${moveCount}회 · 시간: ${formatTime(elapsed)} · 상어에 물린 횟수: ${biteCount}회`;
+    winOverlay.classList.add('show');
+  }
+
+  function startGameTimer() {
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      timerEl.textContent = formatTime(getElapsedSeconds());
+    }, 500);
+  }
+
+  function stopGameTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
+
+  function getElapsedSeconds() {
+    if (startTime === null) return 0;
+    return Math.floor((Date.now() - startTime) / 1000);
+  }
+
+  function formatTime(sec) {
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function resetStats() {
+    moveCount = 0;
+    moveCountEl.textContent = '0';
+    biteCount = 0;
+    biteCountEl.textContent = '0';
+    stopGameTimer();
+    startTime = null;
+    timerEl.textContent = '00:00';
+    won = false;
+    winOverlay.classList.remove('show');
+  }
+
+  function newGame() {
+    const size = Number(difficultySelect.value);
+    generateMaze(size);
+    resizeCanvas();
+    resetStats();
+  }
+
+  function restartSameMaze() {
+    player = { x: 0, y: 0 };
+    facing = 'left';
+    visited = grid.map(() => false);
+    visited[index(0, 0)] = true;
+    resetStats();
+  }
+
+  window.addEventListener('keydown', (e) => {
+    const map = {
+      ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+      w: 'up', s: 'down', a: 'left', d: 'right',
+      W: 'up', S: 'down', A: 'left', D: 'right'
+    };
+    const dir = map[e.key];
+    if (dir) {
+      e.preventDefault();
+      move(dir);
+    }
+  });
+
+  dpadButtons.forEach((btn) => {
+    btn.addEventListener('click', () => move(btn.dataset.dir));
+  });
+
+  newGameBtn.addEventListener('click', newGame);
+  resetBtn.addEventListener('click', restartSameMaze);
+  playAgainBtn.addEventListener('click', newGame);
+  difficultySelect.addEventListener('change', newGame);
+  window.addEventListener('resize', resizeCanvas);
+
+  // Swipe support for touch
+  let touchStartX = 0, touchStartY = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  canvas.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (Math.abs(dx) > 20) move(dx > 0 ? 'right' : 'left');
+    } else {
+      if (Math.abs(dy) > 20) move(dy > 0 ? 'down' : 'up');
+    }
+  }, { passive: true });
+
+  newGame();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
