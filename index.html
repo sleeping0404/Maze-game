@@ -552,7 +552,7 @@
   // shapes render identically on every device.
   function drawFish(cx, cy, size, facingRight) {
     const w = size, h = size * 0.66;
-    const ink = '#4a3324';
+    const ink = '#1c2f42';
     ctx.save();
     ctx.translate(cx, cy);
     if (facingRight) ctx.scale(-1, 1);
@@ -560,7 +560,7 @@
 
     // tail fin
     ctx.lineWidth = Math.max(1, w * 0.026);
-    ctx.fillStyle = '#ffb84d';
+    ctx.fillStyle = '#5aa9e6';
     ctx.strokeStyle = ink;
     ctx.beginPath();
     ctx.moveTo(w * 0.28, 0);
@@ -573,8 +573,8 @@
 
     // round, chubby body — no stripes, keep it clean and simple
     const bodyGrad = ctx.createLinearGradient(-w * 0.34, -h * 0.4, w * 0.28, h * 0.4);
-    bodyGrad.addColorStop(0, '#ffcf6b');
-    bodyGrad.addColorStop(1, '#ffa63d');
+    bodyGrad.addColorStop(0, '#8ed2ff');
+    bodyGrad.addColorStop(1, '#3d8fd6');
     ctx.fillStyle = bodyGrad;
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(1.4, w * 0.03);
@@ -590,8 +590,8 @@
     ctx.fill();
 
     // curly perm hair on top of the head
-    ctx.fillStyle = '#ff9fc2';
-    ctx.strokeStyle = ink;
+    ctx.fillStyle = '#232323';
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth = Math.max(1, w * 0.022);
     const curls = [
       { x: -w * 0.17, y: -h * 0.42, r: w * 0.1 },
@@ -608,7 +608,7 @@
     });
 
     // small side fin
-    ctx.fillStyle = 'rgba(255,166,61,0.9)';
+    ctx.fillStyle = 'rgba(90,169,230,0.9)';
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(1, w * 0.024);
     ctx.beginPath();
