@@ -233,7 +233,7 @@
 <body>
 
 <h1>🐠 바다 미로 탐험</h1>
-<div class="subtitle">물고기를 움직여 조개 보물을 찾아가세요. 벽은 흔들리는 해초예요 — 지나갈 수 없어요.
+<div class="subtitle">물고기를 움직여 귀여운 진주를 찾아가세요. 벽은 흔들리는 해초예요 — 지나갈 수 없어요.
 상어를 만나면 물려서 출발점으로 되돌아가니 조심하세요!</div>
 
 <div class="panel">
@@ -271,7 +271,7 @@
 <div class="hint">방향키 또는 W/A/S/D로 이동 · 모바일에서는 아래 버튼을 사용하세요</div>
 
 <div id="winOverlay">
-  <h2>🐚 보물을 찾았어요!</h2>
+  <h2>✨ 진주를 찾았어요!</h2>
   <p id="winStats"></p>
   <button id="playAgainBtn">새 바다로 다시 하기</button>
 </div>
@@ -310,8 +310,6 @@
   const playAgainBtn = document.getElementById('playAgainBtn');
   const dpadButtons = document.querySelectorAll('.dpad button');
   const toastEl = document.getElementById('toast');
-
-  const FISH_HUE = { bodyLight: '#ffd23f', bodyDark: '#ff8c1a', tail: '#ff8c1a' };
 
   let cols, rows;
   let grid = [];
@@ -552,49 +550,97 @@
   // Android WebViews, some in-app browsers) lack a color emoji font and
   // silently render nothing, which made the fish disappear. Plain canvas
   // shapes render identically on every device.
-  function drawFish(cx, cy, size, facingRight, hue) {
-    const w = size, h = size * 0.62;
+  function drawFish(cx, cy, size, facingRight) {
+    const w = size, h = size * 0.64;
+    const ink = '#2a1608';
     ctx.save();
     ctx.translate(cx, cy);
     if (facingRight) ctx.scale(-1, 1);
+    ctx.lineJoin = 'round';
 
-    ctx.fillStyle = hue.tail;
+    // tail fin, white-tipped like Nemo's
+    ctx.lineWidth = Math.max(1, w * 0.028);
+    ctx.fillStyle = '#ff7a1f';
+    ctx.strokeStyle = ink;
     ctx.beginPath();
     ctx.moveTo(w * 0.3, 0);
-    ctx.quadraticCurveTo(w * 0.42, -h * 0.4, w * 0.58, -h * 0.4);
-    ctx.quadraticCurveTo(w * 0.46, 0, w * 0.58, h * 0.4);
-    ctx.quadraticCurveTo(w * 0.42, h * 0.4, w * 0.3, 0);
+    ctx.quadraticCurveTo(w * 0.44, -h * 0.44, w * 0.62, -h * 0.42);
+    ctx.quadraticCurveTo(w * 0.48, 0, w * 0.62, h * 0.42);
+    ctx.quadraticCurveTo(w * 0.44, h * 0.44, w * 0.3, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.53, -h * 0.36);
+    ctx.quadraticCurveTo(w * 0.6, 0, w * 0.53, h * 0.36);
+    ctx.quadraticCurveTo(w * 0.47, 0, w * 0.53, -h * 0.36);
     ctx.closePath();
     ctx.fill();
 
-    const bodyGrad = ctx.createLinearGradient(-w * 0.4, -h * 0.5, w * 0.3, h * 0.5);
-    bodyGrad.addColorStop(0, hue.bodyLight);
-    bodyGrad.addColorStop(1, hue.bodyDark);
+    // body
+    const bodyGrad = ctx.createLinearGradient(-w * 0.36, -h * 0.4, w * 0.3, h * 0.4);
+    bodyGrad.addColorStop(0, '#ff9a42');
+    bodyGrad.addColorStop(1, '#ff6c14');
     ctx.fillStyle = bodyGrad;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(1.4, w * 0.032);
     ctx.beginPath();
-    ctx.ellipse(0, 0, w * 0.36, h * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, w * 0.37, h * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.32)';
+    // Nemo's white-black-edged stripes, clipped to the body
+    ctx.save();
     ctx.beginPath();
-    ctx.ellipse(-w * 0.02, h * 0.16, w * 0.2, h * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(0, 0, w * 0.365, h * 0.49, 0, 0, Math.PI * 2);
+    ctx.clip();
+    const stripe = (xPos, width) => {
+      ctx.fillStyle = ink;
+      ctx.fillRect(xPos - width / 2 - w * 0.028, -h * 0.6, width + w * 0.056, h * 1.2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(xPos - width / 2, -h * 0.6, width, h * 1.2);
+    };
+    stripe(-w * 0.16, w * 0.09);
+    stripe(w * 0.04, w * 0.09);
+    stripe(w * 0.21, w * 0.06);
+    ctx.restore();
 
-    ctx.fillStyle = hue.bodyDark;
+    // dorsal fin
+    ctx.fillStyle = '#ff7a1f';
     ctx.beginPath();
-    ctx.moveTo(-w * 0.04, -h * 0.46);
-    ctx.lineTo(w * 0.1, -h * 0.8);
-    ctx.lineTo(w * 0.22, -h * 0.4);
+    ctx.moveTo(-w * 0.05, -h * 0.47);
+    ctx.lineTo(w * 0.1, -h * 0.82);
+    ctx.lineTo(w * 0.23, -h * 0.42);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
+    // little belly fin
+    ctx.fillStyle = 'rgba(255,122,31,0.9)';
     ctx.beginPath();
-    ctx.arc(-w * 0.21, -h * 0.08, w * 0.095, 0, Math.PI * 2);
+    ctx.moveTo(-w * 0.02, h * 0.4);
+    ctx.lineTo(w * 0.02, h * 0.66);
+    ctx.lineTo(w * 0.14, h * 0.42);
+    ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+
+    // big cute eye
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(1, w * 0.022);
+    ctx.beginPath();
+    ctx.arc(-w * 0.2, -h * 0.08, w * 0.115, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
     ctx.fillStyle = '#17202a';
     ctx.beginPath();
-    ctx.arc(-w * 0.23, -h * 0.08, w * 0.048, 0, Math.PI * 2);
+    ctx.arc(-w * 0.22, -h * 0.08, w * 0.058, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-w * 0.245, -h * 0.11, w * 0.022, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
@@ -648,35 +694,64 @@
     ctx.restore();
   }
 
-  function drawShell(cx, cy, size, pulse) {
-    const R = size * 0.5 * pulse;
+  function drawPearl(cx, cy, size, pulse) {
+    const R = size * 0.46 * pulse;
     ctx.save();
-    ctx.translate(cx, cy + R * 0.15);
+    ctx.translate(cx, cy);
 
-    const ridges = 8;
-    for (let i = 0; i < ridges; i++) {
-      const a0 = Math.PI + (Math.PI * i) / ridges;
-      const a1 = Math.PI + (Math.PI * (i + 1)) / ridges;
-      ctx.fillStyle = i % 2 === 0 ? '#ffe1c9' : '#ffb199';
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, R, a0, a1);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.strokeStyle = '#e8886a';
-    ctx.lineWidth = Math.max(1, size * 0.03);
+    // glossy pearl body
+    const grad = ctx.createRadialGradient(-R * 0.32, -R * 0.36, R * 0.08, 0, 0, R);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.55, '#f5eeff');
+    grad.addColorStop(1, '#dcc9ff');
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = Math.max(1, R * 0.05);
     ctx.beginPath();
-    ctx.arc(0, 0, R, Math.PI, Math.PI * 2);
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
 
-    const pearlGrad = ctx.createRadialGradient(0, -R * 0.2, 1, 0, -R * 0.2, R * 0.3);
-    pearlGrad.addColorStop(0, '#ffffff');
-    pearlGrad.addColorStop(1, '#bfe8ff');
-    ctx.fillStyle = pearlGrad;
+    // glossy highlight streak
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.beginPath();
-    ctx.arc(0, -R * 0.15, R * 0.26, 0, Math.PI * 2);
+    ctx.ellipse(-R * 0.32, -R * 0.36, R * 0.28, R * 0.15, -0.5, 0, Math.PI * 2);
     ctx.fill();
+
+    // blush cheeks
+    ctx.fillStyle = 'rgba(255,140,175,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(-R * 0.42, R * 0.2, R * 0.16, R * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(R * 0.42, R * 0.2, R * 0.16, R * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // big round eyes with sparkle
+    [-1, 1].forEach((dir) => {
+      ctx.fillStyle = '#241b33';
+      ctx.beginPath();
+      ctx.arc(dir * R * 0.32, -R * 0.02, R * 0.135, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(dir * R * 0.32 - dir * R * 0.04, -R * 0.07, R * 0.045, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // tiny nose
+    ctx.fillStyle = '#e2a2c4';
+    ctx.beginPath();
+    ctx.arc(0, R * 0.13, R * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+
+    // smiling mouth
+    ctx.strokeStyle = '#6b4a63';
+    ctx.lineWidth = Math.max(1, R * 0.06);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, R * 0.1, R * 0.22, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -742,7 +817,7 @@
     ctx.beginPath();
     ctx.arc(gx, gy, cellSize * 0.9, 0, Math.PI * 2);
     ctx.fill();
-    drawShell(gx, gy, cellSize, pulse);
+    drawPearl(gx, gy, cellSize, pulse);
 
     // sharks
     sharks.forEach((s) => {
@@ -756,7 +831,7 @@
     const px = player.x * cellSize + cellSize / 2;
     const bob = Math.sin(time * 0.005) * cellSize * 0.06;
     const py = player.y * cellSize + cellSize / 2 + bob;
-    drawFish(px, py, cellSize * 0.95, facing === 'right', FISH_HUE);
+    drawFish(px, py, cellSize * 0.95, facing === 'right');
   }
 
   // ---------- animation loop ----------
